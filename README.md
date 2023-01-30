@@ -17,3 +17,19 @@ options:
                         Map tiles (default: OpenStreetMap)
 ```
 
+**USAGE EXAMPLES:**
+
+Extract EXIF data from local image files and generate a map:
+```
+python exifmapper.py -f image1.jpg image2.jpg -m map.html
+```
+Extract EXIF data from image URLs and generate a map:
+
+```
+python exifmapper.py -u https://example.com/image1.jpg https://example.com/image2.jpg -m map.html
+```
+
+Extract EXIF data from local image files, generate a map with custom map tiles (terrain):
+```
+python exifmapper.py -f image1.jpg image2.jpg -m map.html -t StamenTerrain
+```
