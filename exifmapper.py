@@ -1,38 +1,64 @@
+import argparse
+import os
+import io
+import requests
+import folium
 import exifread
-import geopy
-from geopy.geocoders import Nominatim
 
-geolocator = Nominatim(user_agent="exifmapper")
+def parse_args():
+  parser = argparse.ArgumentParser(description="Extracts EXIF data and generates a map.")
+  group = parser.add_mutually_exclusive_group(required=True)
+  group.add_argument("-f", "--files", type=str, nargs='+', help="Path to image files")
+  group.add_argument("-u", "--urls", type=str, nargs='+', help="URLs of images")
+  parser.add_argument("-m", "--map", type=str, help="Path to save map")
+  parser.add_argument("-t", "--tiles", type=str, help="Map tiles (default: OpenStreetMap)", default="OpenStreetMap")
+  return parser.parse_args()
 
-# Get the directory containing the image files
-directory = input("Enter the directory containing the image files: ")
+def get_loc(file_or_url, from_file=True):
+  try:
+    if from_file:
+      ext = os.path.splitext(file_or_url)[1].lower()
+      if ext not in [".jpg", ".jpeg"]:
+        return None
+      with open(file_or_url, "rb") as file:
+        tags = exifread.process_file(file)
+    else:
+      response = requests.get(file_or_url)
+      ext = os.path.splitext(urlparse(file_or_url).path)[1].lower()
+      if ext not in [".jpg", ".jpeg"]:
+        return None
+      file = io.BytesIO(response.content)
+      tags = exifread.process_file(file)
+    if not tags:
+      return None
+    lat = tags.get("GPS GPSLatitude").values
+    lat_ref = tags.get("GPS GPSLatitudeRef").values
+    lon = tags.get("GPS GPSLongitude").values
+    lon_ref = tags.get("GPS GPSLongitudeRef").values
+    lat = exifread.utils.decimal_to_dms(lat, lat_ref)
+    lon = exifread.utils.decimal_to_dms(lon, lon_ref)
+    return [lat, lon]
+  except:
+    return None
 
-# Get all image files in the specified directory
-for file in os.listdir(directory):
-    if file.endswith(".jpg") or file.endswith(".jpeg") or file.endswith(".JPG") or file.endswith(".JPEG"):
-        # Open the image file
-        with open(file, "rb") as image_file:
-            # Read the exif data
-            exif_data = exifread.process_file(image_file)
-            # Get the GPS information
-            gps_latitude = exif_data["GPS GPSLatitude"]
-            gps_latitude_ref = exif_data["GPS GPSLatitudeRef"]
-            gps_longitude = exif_data["GPS GPSLongitude"]
-            gps_longitude_ref = exif_data["GPS GPSLongitudeRef"]
-            # Convert the GPS data to decimal degrees
-            latitude = convert_to_degrees(gps_latitude)
-            if gps_latitude_ref != "N":
-                latitude = 0 - latitude
-            longitude = convert_to_degrees(gps_longitude)
-            if gps_longitude_ref != "E":
-                longitude = 0 - longitude
-            # Get the address of the location
-            location = geolocator.reverse(f"{latitude}, {longitude}")
-            print(f"{file}: {location.address}")
-
-# Function to convert the GPS data to decimal degrees
-def convert_to_degrees(value):
-    d = float(value.values[0].num) / float(value.values[0].den)
-    m = float(value.values[1].num) / float(value.values[1].den)
-    s = float(value.values[2].num) / float(value.values[2].den)
-    return d + (m / 60.0) + (s / 3600.0
+def main():
+  args = parse_args()
+  markers = []
+  for file_or_url in args.files or args.urls:
+    loc = get_loc(file_or_url, from_file=args.files is not None)
+    if loc:
+      markers.append(loc)
+  if not markers:
+    print("No valid GPS data found.")
+    return
+  avg_lat = sum(x[0] for x in markers) / len(markers)
+  avg_lon = sum(x[1] for x in markers) / len(markers)
+  m = folium.Map(location=[avg_lat, avg_lon], zoom_start=16, tiles=args.tiles)
+  if args.map:
+    m.save(args.map)
+  else:
+    m.show()
+  for marker in markers:
+    folium.Marker(location=marker).add_to(m)
+if __name__ == "__main__":
+  main()
