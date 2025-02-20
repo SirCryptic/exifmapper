@@ -29,12 +29,15 @@ Developed by [SirCryptic](https://github.com/SirCryptic)
 ## Screenshots
 
 ### Main Interface
-![interface](https://github.com/user-attachments/assets/79476c76-e15f-42c8-b49c-ace43ab42c5d)
+![interface](https://github.com/user-attachments/assets/32f427f6-67d8-4024-8cb6-cc31713e6769)
+
 
 
 ### Map View
 Interactive map displayed in the browser.
-![i-map](https://github.com/user-attachments/assets/e9466136-ff15-4ca0-ae0f-8cda5c55dc8c)
+![distance](https://github.com/user-attachments/assets/bc7a6d1e-6047-47e2-a4d1-2fea50f31df5)
+![heat](https://github.com/user-attachments/assets/5bf115a0-0eba-499a-b6a7-2233a302b11b)
+![i-main](https://github.com/user-attachments/assets/2f5a7435-5d24-4f11-908f-1fbe844fb377)
 
 # Installation
 ### Prerequisites
