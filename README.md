@@ -34,6 +34,7 @@ Developed by [SirCryptic](https://github.com/SirCryptic)
 ### Map View
 Interactive map displayed in the browser.
 ![mapview](https://github.com/user-attachments/assets/34f53647-af0b-473c-8e7d-90e8bfbbcc72)
+![multipin](https://github.com/user-attachments/assets/ccf79386-d1fb-4ac6-a6a4-dc83ed7dd0ec)
 
 # Installation
 ### Prerequisites
