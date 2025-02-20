@@ -30,8 +30,8 @@ Interactive map displayed in the browser.
 
 # Installation
 ### Prerequisites
-- Python 3.8+: Download Python
-- Windows: For the compiled .exe (other OS support possible with source).
+- Python 3.8+
+- Windows: Just use the compiled .exe unless you want to run from source (note: other OS support possible with source).
 
 ### Option 1: Run from Source
 
