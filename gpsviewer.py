@@ -4,6 +4,7 @@ import requests
 import io
 import os
 import logging
+import base64
 from PyQt5.QtWidgets import (QApplication, QWidget, QVBoxLayout, QHBoxLayout, 
                              QPushButton, QLabel, QLineEdit, QFileDialog, 
                              QListWidget, QMessageBox, QInputDialog, QComboBox)
@@ -11,9 +12,13 @@ from PyQt5.QtCore import Qt
 from PyQt5.QtGui import QPalette, QColor, QIcon, QPixmap
 from io import BytesIO
 import folium
+from folium.plugins import MarkerCluster, HeatMap, AntPath
 from PIL import Image
 from PIL.ExifTags import TAGS, GPSTAGS
 import json
+from math import radians, sin, cos, sqrt, atan2
+from geopy.geocoders import Nominatim
+import simplekml
 
 # Setup basic logging
 logging.basicConfig(filename='errors.log', level=logging.ERROR, 
@@ -22,7 +27,11 @@ logging.basicConfig(filename='errors.log', level=logging.ERROR,
 class MapUI(QWidget):
     def __init__(self):
         super().__init__()
-        self.markers = []  # Now stores (location, name, timestamp) tuples
+        self.markers = []  # (location, name, timestamp, altitude) tuples
+        self.undo_stack = []
+        self.redo_stack = []
+        self.show_distance_lines = False
+        self.show_heatmap = False  # Toggle state for heatmap
         self.last_file = self.load_last_file()
         self.initUI()
         if self.last_file and os.path.exists(self.last_file):
@@ -105,6 +114,10 @@ class MapUI(QWidget):
         addMarkerButton.clicked.connect(self.addMarker)
         addMarkerButton.setToolTip("Manually add a location with custom coordinates.")
         marker_buttons.addWidget(addMarkerButton)
+        geocodeButton = QPushButton('Add by Address', self)
+        geocodeButton.clicked.connect(self.addGeocodedLocation)
+        geocodeButton.setToolTip("Add a location by entering an address.")
+        marker_buttons.addWidget(geocodeButton)
         removeMarkerButton = QPushButton('Remove Selected', self)
         removeMarkerButton.clicked.connect(self.removeMarker)
         removeMarkerButton.setToolTip("Remove the currently selected location.")
@@ -113,6 +126,26 @@ class MapUI(QWidget):
         clearButton.clicked.connect(self.clearAll)
         clearButton.setToolTip("Remove all locations from the list.")
         marker_buttons.addWidget(clearButton)
+        undoButton = QPushButton('Undo', self)
+        undoButton.clicked.connect(self.undo)
+        undoButton.setToolTip("Undo the last action (add/remove/edit).")
+        marker_buttons.addWidget(undoButton)
+        redoButton = QPushButton('Redo', self)
+        redoButton.clicked.connect(self.redo)
+        redoButton.setToolTip("Redo the last undone action.")
+        marker_buttons.addWidget(redoButton)
+        distanceButton = QPushButton('Calculate Distance', self)
+        distanceButton.clicked.connect(self.calculateDistance)
+        distanceButton.setToolTip("Calculate total distance between all locations in miles.")
+        marker_buttons.addWidget(distanceButton)
+        toggleDistanceButton = QPushButton('Toggle Distance Lines', self)
+        toggleDistanceButton.clicked.connect(self.toggleDistanceLines)
+        toggleDistanceButton.setToolTip("Show/hide distance lines on the map.")
+        marker_buttons.addWidget(toggleDistanceButton)
+        toggleHeatmapButton = QPushButton('Toggle Heatmap', self)
+        toggleHeatmapButton.clicked.connect(self.toggleHeatmap)
+        toggleHeatmapButton.setToolTip("Show/hide heatmap overlay on the map.")
+        marker_buttons.addWidget(toggleHeatmapButton)
         main_layout.addLayout(marker_buttons)
 
         # Save/Load Buttons
@@ -121,6 +154,10 @@ class MapUI(QWidget):
         saveButton.clicked.connect(self.saveData)
         saveButton.setToolTip("Save all locations to a JSON file.")
         save_load_layout.addWidget(saveButton)
+        exportKMLButton = QPushButton('Export to KML', self)
+        exportKMLButton.clicked.connect(self.exportKML)
+        exportKMLButton.setToolTip("Export locations to KML for Google Earth.")
+        save_load_layout.addWidget(exportKMLButton)
         loadSavedButton = QPushButton('Load Saved Locations', self)
         loadSavedButton.clicked.connect(lambda: self.loadSavedData())
         loadSavedButton.setToolTip("Add locations from a saved JSON file.")
@@ -141,6 +178,8 @@ class MapUI(QWidget):
             QMessageBox.information(self, "Success", f"Selected {len(files)} image(s). Click 'Load Location' to process.")
 
     def loadGPSData(self):
+        self.undo_stack.append(self.markers.copy())
+        self.redo_stack.clear()
         inputs = [x.strip() for x in self.fileInput.text().split(',')]
         if not inputs or all(not x for x in inputs):
             QMessageBox.warning(self, "Oops", "Please enter an image URL or path first!")
@@ -151,14 +190,14 @@ class MapUI(QWidget):
                 if item.startswith('http'):
                     if 'github.com' in item and '/blob/' in item:
                         item = item.replace('github.com', 'raw.githubusercontent.com').replace('/blob/', '/')
-                    loc, timestamp = self.get_loc(item, from_file=False)
+                    loc, timestamp, altitude = self.get_loc(item, from_file=False)
                 else:
                     if not os.path.exists(item):
                         raise FileNotFoundError(f"File not found: {item}")
-                    loc, timestamp = self.get_loc(item, from_file=True)
+                    loc, timestamp, altitude = self.get_loc(item, from_file=True)
                 if loc:
                     if not self.is_duplicate(loc, item):
-                        self.markers.append((loc, item, timestamp))
+                        self.markers.append((loc, item, timestamp, altitude))
                         self.fileList.addItem(item)
                         new_locations += 1
                     else:
@@ -167,7 +206,7 @@ class MapUI(QWidget):
                                                     QMessageBox.Yes | QMessageBox.No, QMessageBox.No)
                         if reply == QMessageBox.Yes:
                             self.removeMarkerByName(item)
-                            self.markers.append((loc, item, timestamp))
+                            self.markers.append((loc, item, timestamp, altitude))
                             self.fileList.addItem(item)
                             new_locations += 1
                 else:
@@ -195,7 +234,7 @@ class MapUI(QWidget):
                 with Image.open(file_or_url) as img:
                     exif_data = img._getexif()
                     if not exif_data:
-                        return None, None
+                        return None, None, None
                     exif_data = {TAGS.get(tag, tag): value for tag, value in exif_data.items()}
             else:
                 response = requests.get(file_or_url, timeout=5)
@@ -204,30 +243,32 @@ class MapUI(QWidget):
                 with Image.open(img_data) as img:
                     exif_data = img._getexif()
                     if not exif_data:
-                        return None, None
+                        return None, None, None
                     exif_data = {TAGS.get(tag, tag): value for tag, value in exif_data.items()}
-            loc = self.get_gps_data(exif_data)
-            timestamp = exif_data.get('DateTime', None)  # e.g., "2023:01:15 14:30:45"
-            return loc, timestamp
+            loc, altitude = self.get_gps_data(exif_data)
+            timestamp = exif_data.get('DateTime', None)
+            return loc, timestamp, altitude
         except Exception as e:
             raise Exception(f"Processing failed: {str(e)}")
 
     def get_gps_data(self, tags):
         if 'GPSInfo' not in tags or not tags['GPSInfo']:
-            return None
+            return None, None
         gps_info = {GPSTAGS.get(key, key): value for key, value in tags['GPSInfo'].items()}
         lat = gps_info.get('GPSLatitude')
         lat_ref = gps_info.get('GPSLatitudeRef')
         lon = gps_info.get('GPSLongitude')
         lon_ref = gps_info.get('GPSLongitudeRef')
+        alt = gps_info.get('GPSAltitude')
         if lat and lat_ref and lon and lon_ref:
             try:
                 lat = self.convert_to_degrees(lat, lat_ref)
                 lon = self.convert_to_degrees(lon, lon_ref)
-                return [lat, lon]
+                alt_value = float(alt) if alt else None  # Altitude in meters
+                return [lat, lon], alt_value
             except Exception as e:
                 logging.error(f"GPS conversion error: {str(e)}")
-        return None
+        return None, None
 
     def convert_to_degrees(self, value, ref):
         try:
@@ -257,13 +298,47 @@ class MapUI(QWidget):
                 folium.TileLayer(tiles='stamen terrain', attr='Map tiles by Stamen Design, under CC BY 3.0. Data by OpenStreetMap, under ODbL.').add_to(m)
             elif tile_choice == 'CartoDB Positron':
                 folium.TileLayer(tiles='cartodb positron', attr='© CartoDB, © OpenStreetMap contributors').add_to(m)
-            for loc, name, timestamp in self.markers:
+            
+            # Marker Clustering
+            marker_cluster = MarkerCluster().add_to(m)
+            for loc, name, timestamp, altitude in self.markers:
                 popup_text = f"<b>{name}</b>"
                 if timestamp:
                     date, time = timestamp.split(" ")
-                    date = date.replace(":", "-")  # Convert "YYYY:MM:DD" to "YYYY-MM-DD"
-                    popup_text += f"<br>Time: {time}<br>Date: {date}"
-                folium.Marker(loc, popup=popup_text).add_to(m)
+                    popup_text += f"<br>Time: {time}<br>Date: {date.replace(':', '-')}"
+                if altitude is not None:
+                    popup_text += f"<br>Altitude: {altitude:.1f} m"
+                if name.startswith('http'):
+                    popup_text += f"<br><img src='{name}' width='100'>"
+                else:
+                    try:
+                        with open(name, 'rb') as img_file:
+                            img_data = base64.b64encode(img_file.read()).decode('utf-8')
+                            popup_text += f"<br><img src='data:image/jpeg;base64,{img_data}' width='100'>"
+                    except Exception as e:
+                        logging.error(f"Error loading image preview for {name}: {str(e)}")
+                folium.Marker(loc, popup=folium.Popup(popup_text, max_width=300)).add_to(marker_cluster)
+            
+            # Distance Lines
+            if self.show_distance_lines and len(self.markers) >= 2:
+                total_distance = 0
+                coords = [marker[0] for marker in self.markers]
+                for i in range(len(coords) - 1):
+                    lat1, lon1 = map(radians, coords[i])
+                    lat2, lon2 = map(radians, coords[i + 1])
+                    dlat, dlon = lat2 - lat1, lon2 - lon1
+                    a = sin(dlat/2)**2 + cos(lat1) * cos(lat2) * sin(dlon/2)**2
+                    c = 2 * atan2(sqrt(a), sqrt(1-a))
+                    distance_km = 6371 * c
+                    distance_miles = distance_km * 0.621371
+                    total_distance += distance_miles
+                AntPath(coords, tooltip=f"Total Distance: {total_distance:.2f} miles", color='red').add_to(m)
+            
+            # Heatmap Overlay
+            if self.show_heatmap:
+                heat_data = [[loc[0], loc[1]] for loc, _, _, _ in self.markers]
+                HeatMap(heat_data).add_to(m)
+
             temp_html = 'temp_map.html'
             m.save(temp_html)
             webbrowser.open('file://' + os.path.realpath(temp_html))
@@ -294,7 +369,30 @@ class MapUI(QWidget):
                 QMessageBox.critical(self, "Save Error", f"Couldn’t save: {str(e)}")
                 logging.error(f"Save error: {str(e)}")
 
+    def exportKML(self):
+        if not self.markers:
+            QMessageBox.warning(self, "Oops", "No locations to export!")
+            return
+        fileName, _ = QFileDialog.getSaveFileName(self, "Export to KML", "", "KML Files (*.kml)")
+        if fileName:
+            try:
+                kml = simplekml.Kml()
+                for loc, name, timestamp, altitude in self.markers:
+                    pnt = kml.newpoint(name=name, coords=[(loc[1], loc[0], altitude or 0)])
+                    if timestamp:
+                        date, time = timestamp.split(" ")
+                        pnt.description = f"Time: {time}\nDate: {date.replace(':', '-')}"
+                        if altitude is not None:
+                            pnt.description += f"\nAltitude: {altitude:.1f} m"
+                kml.save(fileName)
+                QMessageBox.information(self, "Exported", f"Locations exported to {fileName}!")
+            except Exception as e:
+                QMessageBox.critical(self, "Export Error", f"Couldn’t export: {str(e)}")
+                logging.error(f"Export error: {str(e)}")
+
     def loadSavedData(self, fileName=None):
+        self.undo_stack.append(self.markers.copy())
+        self.redo_stack.clear()
         if not fileName:
             fileName, _ = QFileDialog.getOpenFileName(self, "Load Saved Locations", "", "JSON Files (*.json)")
         if fileName:
@@ -304,9 +402,10 @@ class MapUI(QWidget):
                 new_locations = 0
                 for marker in new_markers:
                     loc, name = marker[0], marker[1]
-                    timestamp = marker[2] if len(marker) > 2 else None  # Backward compatibility
+                    timestamp = marker[2] if len(marker) > 2 else None
+                    altitude = marker[3] if len(marker) > 3 else None  # Backward compatibility
                     if not self.is_duplicate(loc, name):
-                        self.markers.append((loc, name, timestamp))
+                        self.markers.append((loc, name, timestamp, altitude))
                         self.fileList.addItem(name)
                         new_locations += 1
                     else:
@@ -315,7 +414,7 @@ class MapUI(QWidget):
                                                     QMessageBox.Yes | QMessageBox.No, QMessageBox.No)
                         if reply == QMessageBox.Yes:
                             self.removeMarkerByName(name)
-                            self.markers.append((loc, name, timestamp))
+                            self.markers.append((loc, name, timestamp, altitude))
                             self.fileList.addItem(name)
                             new_locations += 1
                 self.updateStatus()
@@ -327,17 +426,22 @@ class MapUI(QWidget):
                 logging.error(f"Load error: {str(e)}")
 
     def editMarker(self, item):
+        self.undo_stack.append(self.markers.copy())
+        self.redo_stack.clear()
         current_name = item.text()
         new_name, ok = QInputDialog.getText(self, 'Rename Location', 'New name:', text=current_name)
         if ok and new_name:
-            for i, (loc, name, timestamp) in enumerate(self.markers):
+            for i, (loc, name, timestamp, altitude) in enumerate(self.markers):
                 if name == current_name:
-                    self.markers[i] = (loc, new_name, timestamp)
+                    self.markers[i] = (loc, new_name, timestamp, altitude)
                     break
             self.fileList.item(self.fileList.row(item)).setText(new_name)
             QMessageBox.information(self, "Renamed", f"Changed to '{new_name}'!")
+            self.updateStatus()
 
     def addMarker(self):
+        self.undo_stack.append(self.markers.copy())
+        self.redo_stack.clear()
         dialog = QInputDialog(self)
         dialog.setLabelText("Location name:")
         dialog.setTextValue("New Place")
@@ -367,7 +471,7 @@ class MapUI(QWidget):
                             raise ValueError("Longitude must be between -180 and 180.")
                         loc = [lat, lon]
                         if not self.is_duplicate(loc, name):
-                            self.markers.append((loc, name, None))  # No timestamp for manual entry
+                            self.markers.append((loc, name, None, None))  # No timestamp or altitude
                             self.fileList.addItem(name)
                             self.updateStatus()
                             QMessageBox.information(self, "Added", f"Added '{name}' at {lat}, {lon}!")
@@ -376,7 +480,32 @@ class MapUI(QWidget):
                     except ValueError as e:
                         QMessageBox.warning(self, "Invalid Input", f"Bad longitude: {str(e)}")
 
+    def addGeocodedLocation(self):
+        self.undo_stack.append(self.markers.copy())
+        self.redo_stack.clear()
+        geolocator = Nominatim(user_agent="MapUI")
+        address, ok = QInputDialog.getText(self, "Geocode", "Enter an address:")
+        if ok and address:
+            try:
+                location = geolocator.geocode(address)
+                if location:
+                    loc = [location.latitude, location.longitude]
+                    if not self.is_duplicate(loc, address):
+                        self.markers.append((loc, address, None, None))  # No timestamp or altitude
+                        self.fileList.addItem(address)
+                        self.updateStatus()
+                        QMessageBox.information(self, "Added", f"Added '{address}' at {loc[0]}, {loc[1]}!")
+                    else:
+                        QMessageBox.warning(self, "Duplicate", f"'{address}' already exists!")
+                else:
+                    QMessageBox.warning(self, "Error", "Address not found!")
+            except Exception as e:
+                QMessageBox.critical(self, "Error", f"Geocoding failed: {str(e)}")
+                logging.error(f"Geocoding error: {str(e)}")
+
     def removeMarker(self):
+        self.undo_stack.append(self.markers.copy())
+        self.redo_stack.clear()
         item = self.fileList.currentItem()
         if not item:
             QMessageBox.warning(self, "Oops", "Select a location to remove!")
@@ -388,7 +517,7 @@ class MapUI(QWidget):
         QMessageBox.information(self, "Removed", f"Removed '{name}'!")
 
     def removeMarkerByName(self, name):
-        for i, (_, marker_name, _) in enumerate(self.markers):
+        for i, (_, marker_name, _, _) in enumerate(self.markers):
             if marker_name == name:
                 del self.markers[i]
                 break
@@ -400,13 +529,67 @@ class MapUI(QWidget):
         reply = QMessageBox.question(self, "Confirm Clear", "Remove all locations?", 
                                      QMessageBox.Yes | QMessageBox.No, QMessageBox.No)
         if reply == QMessageBox.Yes:
+            self.undo_stack.append(self.markers.copy())
+            self.redo_stack.clear()
             self.markers = []
             self.fileList.clear()
             self.updateStatus()
             QMessageBox.information(self, "Cleared", "All locations removed!")
 
+    def undo(self):
+        if not self.undo_stack:
+            QMessageBox.information(self, "Nothing to Undo", "No actions to undo!")
+            return
+        self.redo_stack.append(self.markers.copy())
+        self.markers = self.undo_stack.pop()
+        self.fileList.clear()
+        for _, name, _, _ in self.markers:
+            self.fileList.addItem(name)
+        self.updateStatus()
+        QMessageBox.information(self, "Undo", "Last action undone!")
+
+    def redo(self):
+        if not self.redo_stack:
+            QMessageBox.information(self, "Nothing to Redo", "No actions to redo!")
+            return
+        self.undo_stack.append(self.markers.copy())
+        self.markers = self.redo_stack.pop()
+        self.fileList.clear()
+        for _, name, _, _ in self.markers:
+            self.fileList.addItem(name)
+        self.updateStatus()
+        QMessageBox.information(self, "Redo", "Last undone action redone!")
+
+    def calculateDistance(self):
+        if len(self.markers) < 2:
+            QMessageBox.warning(self, "Oops", "Need at least 2 locations to calculate distance!")
+            return
+        total_distance = 0
+        for i in range(len(self.markers) - 1):
+            lat1, lon1 = map(radians, self.markers[i][0])
+            lat2, lon2 = map(radians, self.markers[i + 1][0])
+            dlat, dlon = lat2 - lat1, lon2 - lon1
+            a = sin(dlat/2)**2 + cos(lat1) * cos(lat2) * sin(dlon/2)**2
+            c = 2 * atan2(sqrt(a), sqrt(1-a))
+            distance_km = 6371 * c
+            distance_miles = distance_km * 0.621371
+            total_distance += distance_miles
+        QMessageBox.information(self, "Distance", f"Total distance: {total_distance:.2f} miles")
+
+    def toggleDistanceLines(self):
+        self.show_distance_lines = not self.show_distance_lines
+        self.displayMap()
+        state = "on" if self.show_distance_lines else "off"
+        QMessageBox.information(self, "Distance Lines", f"Distance lines turned {state}")
+
+    def toggleHeatmap(self):
+        self.show_heatmap = not self.show_heatmap
+        self.displayMap()
+        state = "on" if self.show_heatmap else "off"
+        QMessageBox.information(self, "Heatmap", f"Heatmap turned {state}")
+
     def is_duplicate(self, loc, name):
-        for existing_loc, existing_name, _ in self.markers:
+        for existing_loc, existing_name, _, _ in self.markers:
             if (abs(existing_loc[0] - loc[0]) < 0.0001 and 
                 abs(existing_loc[1] - loc[1]) < 0.0001 and 
                 existing_name == name):
@@ -419,13 +602,16 @@ class MapUI(QWidget):
     def showHelp(self):
         help_text = (
             "Welcome to Easy GPS Map Viewer!\n\n"
-            "1. **Load Locations**: Enter image URLs/paths, click 'Load Location' to add them.\n"
-            "2. **View Map**: Click 'View Map' to see all locations with time/date if available.\n"
-            "3. **Add Custom**: Add a manual location with coordinates (no timestamp).\n"
-            "4. **Edit**: Double-click a location to rename it.\n"
-            "5. **Save/Load**: Save to a file or load more locations.\n"
-            "6. **Remove/Clear**: Remove one or all locations.\n\n"
-            "Tip: Images must have GPS EXIF data. Timestamps appear on map pins if present."
+            "1. **Load Locations**: Enter image URLs/paths, click 'Load Location'.\n"
+            "2. **View Map**: See locations with time/date, altitude, and previews.\n"
+            "3. **Add Custom**: Add via coordinates or address (geocoding).\n"
+            "4. **Edit**: Double-click to rename.\n"
+            "5. **Save/Load/Export**: Save to JSON, load, or export to KML.\n"
+            "6. **Remove/Clear**: Remove one or all locations.\n"
+            "7. **Undo/Redo**: Undo or redo actions.\n"
+            "8. **Distance**: Calculate distance in miles or toggle lines.\n"
+            "9. **Heatmap**: Toggle heatmap overlay.\n"
+            "Tip: Images need GPS EXIF data. Errors in 'errors.log'."
         )
         QMessageBox.information(self, "How to Use", help_text)
 
