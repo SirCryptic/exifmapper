@@ -57,7 +57,7 @@ python gpsviewer.py
 ### Option 2: Use the Compiled Executable
 
 1. Download the Latest Release:
-* Go to Releases.
+* Go to [Releases](https://github.com/SirCryptic/exifmapper/releases).
 * Download gpsviewer.exe.
 * Run the exe (no Python installation needed)
 
