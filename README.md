@@ -76,4 +76,4 @@ python gpsviewer.py
 * Click "Save Locations" to save to a .json file.
 * Click "Load Saved Locations" to restore from a file.
 4. Need Help?:
-*Click "Help" for a quick guide.
+* Click "Help" for a quick guide.
