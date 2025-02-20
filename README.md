@@ -15,7 +15,7 @@ Developed by [SirCryptic](https://github.com/SirCryptic)
 - Load GPS Data: Extract coordinates from local images (e.g., .jpg, .png) or web URLs with EXIF GPS metadata.
 Interactive Map: View locations on a map with customizable styles (OpenStreetMap, Stamen Terrain, CartoDB Positron).
 - Add Custom Locations: Manually input latitude and longitude for places without GPS data.
-Edit & Manage: Rename or remove locations from your list.
+- Edit & Manage: Rename or remove locations from your list.
 - Save & Load: Save your locations to a JSON file and load them later.
 - Beginner-Friendly: Clear tooltips, examples, and a help section guide new users.
 
