@@ -2,3 +2,5 @@ PyQt5==5.15.10
 folium==0.17.0
 requests==2.32.3
 Pillow==10.4.0
+simplekml
+geopy
