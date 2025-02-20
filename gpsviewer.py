@@ -126,16 +126,15 @@ class MapUI(QWidget):
             QMessageBox.information(self, "Success", f"Selected {len(files)} image(s). Click 'Load Location' to process.")
 
     def loadGPSData(self):
-        self.fileList.clear()
-        self.markers = []
+        # Modified to append instead of replace
         inputs = [x.strip() for x in self.fileInput.text().split(',')]
         if not inputs or all(not x for x in inputs):
             QMessageBox.warning(self, "Oops", "Please enter an image URL or path first!")
             return
+        new_locations = 0
         for item in inputs:
             try:
                 if item.startswith('http'):
-                    # Auto-correct common GitHub URL mistakes
                     if 'github.com' in item and '/blob/' in item:
                         item = item.replace('github.com', 'raw.githubusercontent.com').replace('/blob/', '/')
                     loc = self.get_loc(item, from_file=False)
@@ -144,8 +143,11 @@ class MapUI(QWidget):
                         raise FileNotFoundError(f"File not found: {item}")
                     loc = self.get_loc(item, from_file=True)
                 if loc:
-                    self.markers.append((loc, item))
-                    self.fileList.addItem(item)
+                    # Check for duplicates before adding
+                    if (loc, item) not in self.markers:
+                        self.markers.append((loc, item))
+                        self.fileList.addItem(item)
+                        new_locations += 1
                 else:
                     self.fileList.addItem(f"{item} - No GPS Data Found")
             except requests.RequestException as e:
@@ -154,8 +156,11 @@ class MapUI(QWidget):
                 self.fileList.addItem(f"{item} - {str(e)}")
             except Exception as e:
                 self.fileList.addItem(f"{item} - Error: {str(e)}")
-        if self.markers:
-            QMessageBox.information(self, "Success", f"Loaded {len(self.markers)} location(s). Click 'View Map' to see them!")
+        if new_locations > 0:
+            QMessageBox.information(self, "Success", f"Added {new_locations} new location(s). Click 'View Map' to see them!")
+            self.fileInput.clear()  # Clear input for next entry
+        elif self.markers:
+            QMessageBox.information(self, "No New Locations", "No new GPS data added, but existing locations remain.")
         else:
             QMessageBox.warning(self, "No Locations", "No GPS data was found. Try a different image or add one manually.")
 
@@ -218,10 +223,9 @@ class MapUI(QWidget):
         try:
             avg_lat = sum(m[0][0] for m in self.markers) / len(self.markers)
             avg_lon = sum(m[0][1] for m in self.markers) / len(self.markers)
-            m = folium.Map(location=[avg_lat, avg_lon], zoom_start=12)  # Lower zoom for broader view
+            m = folium.Map(location=[avg_lat, avg_lon], zoom_start=12)
             tile_choice = self.mapTiles.currentText()
 
-            # Define tile layers with proper attribution
             if tile_choice == 'OpenStreetMap':
                 folium.TileLayer(tiles='openstreetmap', attr='© OpenStreetMap contributors').add_to(m)
             elif tile_choice == 'Stamen Terrain':
@@ -357,12 +361,12 @@ class MapUI(QWidget):
 
     def save_last_file(self, path):
         try:
-            with open('last_file.txt', 'w') as f:
+            with open('last_file.txt', "w") as f:
                 f.write(path)
         except Exception as e:
             print(f"Error saving last file: {str(e)}")
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     app = QApplication(sys.argv)
     ex = MapUI()
     if ex.last_file:
