@@ -75,7 +75,7 @@ python setup_exifmapper.py
 
 3. Launch The app.
 
-if installed you can launch it using any cli & the cmd below
+if installed you can launch it using any cli using the cmd below
 ```
 exifmapper
 ```
