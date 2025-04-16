@@ -28,7 +28,6 @@ Developed by [SirCryptic](https://github.com/SirCryptic)
 - Beginner-Friendly: Clear tooltips, examples, and a help section guide new users.
 - Supports linux & windows!
 
-## Screenshots
 <h1 align="left">Preview</h1>
 
 <center>
