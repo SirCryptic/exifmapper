@@ -53,6 +53,7 @@ Interactive map displayed in the browser.
 ### Prerequisites
 - Python 3.8+
 - Windows: Just use the compiled .exe unless you want to run from source (note: other OS support possible with source also the exe version isnt up to date as of 16/04/2025).
+- I would suggest to install [autoexif](https://github.com/sircryptic/autoexif) before using this tool.
 
 ### Option 1: Run from Source
 
