@@ -17,7 +17,6 @@
 # ExifMapper
 
 A simple, user-friendly desktop application that lets you extract GPS coordinates from images and display them on an interactive map. Whether your photos are stored locally or hosted online, this tool makes it easy to visualize their locations.
-Developed by [SirCryptic](https://github.com/SirCryptic)
 
 ## Features
 - Load GPS Data: Extract coordinates from local images (e.g., .jpg, .png) or web URLs with EXIF GPS metadata.
@@ -37,12 +36,13 @@ Developed by [SirCryptic](https://github.com/SirCryptic)
   <summary>Click to expand!</summary>
 
 ### Main Interface
+![interface](https://github.com/user-attachments/assets/4297f68e-33d9-4d58-a478-ad4837425d6d)
 
-![interface](https://github.com/user-attachments/assets/f64e0879-3633-4be0-b6bc-5fe141e035d9)
 
 ### Map View
 Interactive map displayed in the browser.
-![i-map](https://github.com/user-attachments/assets/84a4477a-650c-4551-8366-e2f841843040)
+![imap](https://github.com/user-attachments/assets/433bbbe1-a0a6-4241-a27c-95f2b122e10e)
+
 
 
 </center>
