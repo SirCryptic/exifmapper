@@ -53,39 +53,10 @@ Interactive map displayed in the browser.
 # Installation
 ### Prerequisites
 - Python 3.11+
-- Windows: Just use the compiled .exe unless you want to run from source (note: other OS support possible with source also the exe version isnt up to date as of 16/04/2025).
 
-### Option 1: Run from Source
-
-Clone the Repository:
 ```
-git clone https://github.com/SirCryptic/exifmapper.git 
-cd exifmapper 
+pip install exifmapper
 ```
-
-1. Install Dependencies:
-```
-pip install -r requirements.txt
-```
-2. Run the Installer:
-This is so you can launch from any cli , windows & linux!
-```
-python setup_exifmapper.py
-```
-
-3. Launch The app.
-
-if installed you can launch it using any cli & the cmd below
-```
-exifmapper
-```
-
-### Option 2: Use the Compiled Executable
-
-1. Download the Latest Release:
-* Go to [Releases](https://github.com/SirCryptic/exifmapper/releases).
-* Download gpsviewer.exe.
-* Run the exe (no Python installation needed - outdated gui)
 
 ### Usage
 1.Load an Image:
