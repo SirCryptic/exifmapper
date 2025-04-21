@@ -28,7 +28,7 @@ Developed by [SirCryptic](https://github.com/SirCryptic)
 - Beginner-Friendly: Clear tooltips, examples, and a help section guide new users.
 - Supports linux & windows!
 
-## Screenshots
+
 <h1 align="left">Preview</h1>
 
 <center>
@@ -37,20 +37,19 @@ Developed by [SirCryptic](https://github.com/SirCryptic)
   <summary>Click to expand!</summary>
 
 ### Main Interface
-![interface](https://github.com/user-attachments/assets/d78bf766-9c08-4deb-847b-a89f32a3e34e)
 
-
+![interface](https://github.com/user-attachments/assets/f64e0879-3633-4be0-b6bc-5fe141e035d9)
 
 ### Map View
 Interactive map displayed in the browser.
-![distance](https://github.com/user-attachments/assets/bc7a6d1e-6047-47e2-a4d1-2fea50f31df5)
-![heat](https://github.com/user-attachments/assets/5bf115a0-0eba-499a-b6a7-2233a302b11b)
-![i-main](https://github.com/user-attachments/assets/2f5a7435-5d24-4f11-908f-1fbe844fb377)
+![i-map](https://github.com/user-attachments/assets/84a4477a-650c-4551-8366-e2f841843040)
+
 
 </center>
 
+##
 
-# Installation
+## Installation
 ### Prerequisites
 - Python 3.11+
 
