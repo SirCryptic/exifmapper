@@ -58,18 +58,7 @@ pip install exifmapper
 ```
 
 ### Usage
-1.Load an Image:
-* Enter a URL (e.g., https://raw.githubusercontent.com/ianare/exif-samples/master/jpg/gps/DSCN0027.jpg) or local path (e.g., C:\Photos\image.jpg) in the input field or just Click "Browse" to select local files.
-* Click "Load Location" to extract GPS data.
-2. View the Map:
-* Select a map style from the dropdown.
-* Click "View Map" to open an interactive map in your browser.
-3. Manage Locations:
-* Double-click a location in the app istelf to rename it it will reflect on the map in the browser once reloaded.
-* Click "Add Custom Location" to enter coordinates manually.
-* Select a location and click "Remove Selected" to delete it.
-3. Save or Load:
-* Click "Save Locations" to save to a .json file.
-* Click "Load Saved Locations" to restore from a file.
-4. Need Help?:
-* Click "Help" for a quick guide.
+```
+exifmapper
+```
+- To launch the gui from any cli.
