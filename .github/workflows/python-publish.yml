@@ -1,0 +1,92 @@
+name: Install & Publish ExifMapper
+
+on:
+  push:
+    branches: ["*"]
+  pull_request:
+    branches: ["*"]
+  release:
+    types: [published]
+
+jobs:
+  test:
+    name: Test on Python
+    runs-on: ubuntu-22.04
+    strategy:
+      matrix:
+        python-version: [3.11]
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Install system dependencies for PyQt6
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libgl1-mesa-glx \
+            libegl1 \
+            libxkbcommon0 \
+            libxcb-xinerama0 \
+            libxcb-cursor0 \
+            libxcb-icccm4 \
+            libxcb-keysyms1 \
+            libxcb-randr0 \
+            libxcb-render0 \
+            libxcb-shape0 \
+            libxcb-xfixes0 \
+            libfontconfig1 \
+            libfreetype6 \
+            libpng16-16 \
+            libqt5core5a \
+            libqt5gui5 \
+            libqt5widgets5 \
+            libegl-mesa0 \
+            libgl1-mesa-dri \
+            libglx-mesa0
+
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Upgrade pip and install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install build pytest PyQt6 requests Pillow folium geopy simplekml
+
+      - name: Build package
+        run: python -m build
+
+      - name: Install built package
+        run: pip install dist/exifmapper-*.whl
+
+      - name: Test package import
+        run: python -c "from exifmapper.gui import main"
+
+  publish:
+    name: Publish to PyPI
+    runs-on: ubuntu-22.04
+    needs: test
+    if: github.event_name == 'release'
+    environment: release
+    permissions:
+      id-token: write
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Upgrade pip and install build
+        run: |
+          python -m pip install --upgrade pip
+          pip install build
+
+      - name: Build package
+        run: python -m build
+
+      - name: Publish to PyPI
+        uses: pypa/gh-action-pypi-publish@release/v1
