@@ -1,7 +1,7 @@
 
 <p align="center">
   <a href="https://github.com/sircryptic/exifmapper">
-    <img src="https://github.com/user-attachments/assets/17948c5b-5e9a-4a85-bd17-9ef762b99637" alt="ExifMapper"
+    <img src="https://github.com/user-attachments/assets/b5597977-420c-4b6c-9ea5-20f4d23b8a5f" alt="ExifMapper"
     onmouseover="this.style.transform='scale(1.05)'; this.style.opacity='0.8';" 
     onmouseout="this.style.transform='scale(1)'; this.style.opacity='1';">
   </a>
