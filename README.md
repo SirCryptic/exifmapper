@@ -11,6 +11,7 @@
     <a href="https://github.com/sircryptic/exifmapper/network"><img src="https://img.shields.io/github/forks/sircryptic/exifmapper.svg" alt="GitHub forks"></a>
     <a href="https://github.com/sircryptic/exifmapper/watchers"><img src="https://img.shields.io/github/watchers/sircryptic/exifmapper.svg?style=social" alt="GitHub watchers"></a>
     <br>
+  <a href="https://pepy.tech/projects/exifmapper"><img src="https://static.pepy.tech/badge/exifmapper" alt="PyPI Downloads"></a>
     <a href="https://github.com/SirCryptic/exifmapper/blob/main/LICENSE"><img src="https://img.shields.io/badge/license-MIT-green.svg" alt="License"></a>
 </div>
 
